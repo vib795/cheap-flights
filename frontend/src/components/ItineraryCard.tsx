@@ -142,14 +142,33 @@ export function ItineraryCard({ itinerary }: ItineraryCardProps) {
 
       {/* Visa Baseline */}
       {itinerary.visa_baseline && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded">
-          <div className="text-xs font-semibold text-blue-900 mb-1">
+        <div
+          className={`p-3 border rounded ${
+            itinerary.visa_baseline.source === 'ai-research'
+              ? 'bg-purple-50 border-purple-300'
+              : 'bg-blue-50 border-blue-200'
+          }`}
+        >
+          <div
+            className={`text-xs font-semibold mb-1 ${
+              itinerary.visa_baseline.source === 'ai-research'
+                ? 'text-purple-900'
+                : 'text-blue-900'
+            }`}
+          >
+            {itinerary.visa_baseline.source === 'ai-research' ? '🤖 ' : ''}
             Destination Entry Info ({itinerary.visa_baseline.source}):
           </div>
-          <div className="text-sm text-gray-700 mb-2">
+          <div className="text-sm text-gray-700 mb-2 whitespace-pre-line">
             {itinerary.visa_baseline.destination_entry_summary}
           </div>
-          <div className="text-xs text-gray-600 italic">
+          <div
+            className={`text-xs italic ${
+              itinerary.visa_baseline.source === 'ai-research'
+                ? 'text-purple-700 font-semibold'
+                : 'text-gray-600'
+            }`}
+          >
             {itinerary.visa_baseline.disclaimer}
           </div>
         </div>

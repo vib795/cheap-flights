@@ -117,6 +117,41 @@ cp .env.example .env
 #   AMADEUS_ENV=test
 ```
 
+#### Optional: Enable AI-Powered Visa Research
+
+By default, the app uses TravelBriefing API for visa information. When that fails, it shows a generic fallback message. You can **optionally** enable AI-powered visa research as a smart fallback:
+
+**How it works:**
+1. When TravelBriefing fails, the app performs a web search for visa requirements
+2. Claude AI (Haiku model) summarizes the findings into concise, helpful guidance
+3. Results are marked with 🤖 icon and strong disclaimers
+
+**To enable:**
+
+1. Get an Anthropic API key from https://console.anthropic.com/
+2. Add to your `.env` file:
+   ```bash
+   ENABLE_AI_VISA_RESEARCH=true
+   ANTHROPIC_API_KEY=your_anthropic_api_key_here
+   ```
+
+**Important caveats:**
+- ⚠️ AI-generated visa information is **NOT authoritative**
+- Results must be verified with official embassy/consulate sources
+- This uses Claude Haiku (fast, cheap model) so costs are minimal
+- The app shows prominent disclaimers when displaying AI research
+- If you don't enable this, the app still works fine with standard fallback messages
+
+**When to use it:**
+- You want more helpful context when TravelBriefing is down
+- You understand the AI results need verification
+- You're okay with small API costs (~$0.001 per search with AI fallback)
+
+**When NOT to use it:**
+- You don't want to rely on AI for any visa information
+- You prefer only showing information from established APIs
+- You want to avoid any Anthropic API costs
+
 ### Step 3: Frontend Setup
 
 ```bash

@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     # TravelBriefing
     travelbriefing_base_url: str = "https://travelbriefing.org"
 
+    # AI Visa Research (optional fallback)
+    enable_ai_visa_research: bool = False  # Set to True to enable AI-powered fallback
+    anthropic_api_key: str = ""  # Required if enable_ai_visa_research=True
+
     # App config
     app_cache_ttl_seconds: int = 1800  # 30 minutes
     app_database_url: str = "sqlite+aiosqlite:///./geoflight.db"

@@ -42,7 +42,9 @@ class TravelBriefingClient:
                     logger.warning(
                         f"TravelBriefing API returned {response.status_code} for {destination_country}"
                     )
-                    return self._create_fallback_baseline(destination_country)
+                    return await self._create_fallback_baseline(
+                        destination_country, passport_nationality
+                    )
 
                 data = response.json()
 
@@ -76,10 +78,38 @@ class TravelBriefingClient:
 
         except Exception as e:
             logger.warning(f"Failed to fetch TravelBriefing data: {e}")
-            return self._create_fallback_baseline(destination_country)
+            return await self._create_fallback_baseline(
+                destination_country, passport_nationality
+            )
 
-    def _create_fallback_baseline(self, destination_country: str) -> VisaBaseline:
-        """Create fallback baseline when API is unavailable"""
+    async def _create_fallback_baseline(
+        self, destination_country: str, passport_nationality: str
+    ) -> VisaBaseline:
+        """
+        Create fallback baseline when API is unavailable
+
+        If AI visa research is enabled, attempt to use it as a smart fallback.
+        Otherwise, return a generic message.
+        """
+        # Try AI-powered research if enabled
+        if settings.enable_ai_visa_research:
+            try:
+                from app.services.ai_visa_research import ai_visa_research_service
+
+                logger.info("Attempting AI-powered visa research as fallback...")
+                ai_result = await ai_visa_research_service.research_visa_requirements(
+                    destination_country, passport_nationality
+                )
+
+                if ai_result:
+                    logger.info("AI visa research succeeded")
+                    return ai_result
+
+            except Exception as e:
+                logger.error(f"AI visa research failed: {e}", exc_info=True)
+
+        # Final fallback: generic message
+        logger.info("Using generic fallback message")
         return VisaBaseline(
             destination_entry_summary=f"Visa information for {destination_country} unavailable. Please check official government travel advisory websites.",
             source="fallback",
