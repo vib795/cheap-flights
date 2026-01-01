@@ -238,35 +238,44 @@ docker-compose down -v
 
 ### What Gets Deployed
 
-The Docker setup includes:
+The Docker setup includes 4 separate containers:
 
-- **Backend + Frontend**: Single container running FastAPI with built React frontend
+- **Frontend**: React app served by nginx (port 80)
+- **Backend**: FastAPI REST API (port 8000)
 - **PostgreSQL 15**: Production database for search history
 - **Redis 7**: Distributed cache for multi-worker deployments
 
 ### Architecture
 
 ```
-┌─────────────────┐
-│   Frontend      │  React app (served from FastAPI)
-│   (Port 8000)   │
-└────────┬────────┘
-         │
-┌────────▼────────┐
-│   FastAPI       │  Python backend
-│   Backend       │
-└────┬──────┬─────┘
-     │      │
-┌────▼──┐ ┌─▼──────┐
-│ Redis │ │ Postgres│
-│ Cache │ │   DB    │
-└───────┘ └─────────┘
+                ┌──────────────────┐
+                │   Frontend       │
+                │   (nginx:80)     │
+                │   React SPA      │
+                └────────┬─────────┘
+                         │
+                         │ /api/* proxied
+                         │
+                ┌────────▼─────────┐
+                │   Backend        │
+                │   (FastAPI:8000) │
+                │   Python API     │
+                └────┬──────┬──────┘
+                     │      │
+         ┌───────────┘      └───────────┐
+         │                               │
+    ┌────▼──────┐              ┌────────▼─────┐
+    │  Redis    │              │  PostgreSQL  │
+    │  (6379)   │              │    (5432)    │
+    │  Cache    │              │  Database    │
+    └───────────┘              └──────────────┘
 ```
 
 ### Access Points
 
-- **Application**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
+- **Application UI**: http://localhost (port 80)
+- **Backend API**: http://localhost:8000
+- **API Docs**: http://localhost/docs (proxied through nginx)
 - **PostgreSQL**: localhost:5432 (user: `geoflight`, db: `geoflight`)
 - **Redis**: localhost:6379
 
@@ -296,22 +305,37 @@ FLUSHDB
 
 1. **Change default passwords** in `docker-compose.yml`
 2. **Use environment variables** for secrets (don't commit `.env`)
-3. **Set up SSL/TLS** with a reverse proxy (nginx, Caddy, Traefik)
+3. **Set up SSL/TLS** with Caddy/Traefik or configure nginx-proxy
 4. **Enable monitoring** (add Prometheus + Grafana containers)
 5. **Configure backups** for PostgreSQL volumes
 6. **Use production Amadeus credentials** (`AMADEUS_ENV=prod`)
+7. **Load balancing**: For multiple backend replicas, add nginx/haproxy load balancer
 
 ### Scaling for High Traffic
 
-```yaml
-# In docker-compose.yml, scale the app service:
-services:
-  app:
-    deploy:
-      replicas: 4  # Run 4 instances
+Scale the backend horizontally (Redis ensures cache is shared across instances):
+
+```bash
+# Scale backend to 4 replicas
+docker-compose up -d --scale backend=4
+
+# Note: You'll need a load balancer in front (nginx-proxy, Traefik, etc.)
 ```
 
-Or use Docker Swarm/Kubernetes for advanced orchestration.
+Or use Docker Swarm/Kubernetes for production orchestration:
+
+```yaml
+# docker-compose.yml with Swarm deploy config:
+services:
+  backend:
+    deploy:
+      replicas: 4
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+```
 
 ## 🧪 Running Tests
 

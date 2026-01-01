@@ -20,6 +20,7 @@ services:
       retries: 5
     networks:
       - geoflight-network
+    restart: unless-stopped
 
   # Redis Cache
   redis:
@@ -36,13 +37,14 @@ services:
       retries: 5
     networks:
       - geoflight-network
+    restart: unless-stopped
 
-  # Backend + Frontend (single container)
-  app:
+  # Backend (FastAPI)
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: geoflight-app
+    container_name: geoflight-backend
     ports:
       - "8000:8000"
     environment:
@@ -52,7 +54,7 @@ services:
       # Redis
       REDIS_URL: redis://redis:6379/0
 
-      # Amadeus API (set your credentials)
+      # Amadeus API (set your credentials in .env file)
       AMADEUS_CLIENT_ID: ${AMADEUS_CLIENT_ID:-}
       AMADEUS_CLIENT_SECRET: ${AMADEUS_CLIENT_SECRET:-}
       AMADEUS_ENV: ${AMADEUS_ENV:-test}
@@ -63,12 +65,26 @@ services:
 
       # App config
       APP_CACHE_TTL_SECONDS: 1800
-      CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8000"]'
+      CORS_ORIGINS: '["http://localhost","http://localhost:3000","http://localhost:80"]'
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - geoflight-network
+    restart: unless-stopped
+
+  # Frontend (React + nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: geoflight-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
     networks:
       - geoflight-network
     restart: unless-stopped
