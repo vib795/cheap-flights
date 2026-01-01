@@ -73,9 +73,10 @@ class AmadeusClient:
         if request.cabin != CabinClass.ECONOMY:
             params["travelClass"] = request.cabin.value
 
-        # Add max stops if specified
-        if request.max_stops < 2:
-            params["maxStops"] = request.max_stops
+        # Add nonStop parameter for direct flights only
+        # Note: Amadeus API doesn't support filtering by max stops (only nonStop=true for 0 stops)
+        if request.max_stops == 0:
+            params["nonStop"] = "true"
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
