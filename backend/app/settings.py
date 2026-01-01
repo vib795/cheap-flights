@@ -18,7 +18,16 @@ class Settings(BaseSettings):
 
     # App config
     app_cache_ttl_seconds: int = 1800  # 30 minutes
-    app_database_url: str = "sqlite+aiosqlite:///./geoflight.db"
+
+    # Database configuration
+    # For local dev: sqlite+aiosqlite:///./geoflight.db
+    # For Docker: postgresql+asyncpg://user:pass@host:5432/dbname
+    database_url: str = "sqlite+aiosqlite:///./geoflight.db"
+
+    # Redis configuration (for distributed caching in production)
+    # Set redis_url to enable Redis caching instead of in-memory
+    # Example: redis://localhost:6379/0 or redis://redis:6379/0 (Docker)
+    redis_url: str = ""  # Empty = use in-memory cache
 
     # CORS
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]

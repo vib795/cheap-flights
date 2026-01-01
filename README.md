@@ -187,6 +187,132 @@ The application will be available at **http://localhost:8000**
 - **API Docs:** http://localhost:8000/docs
 - **Health Check:** http://localhost:8000/api/health
 
+## 🐳 Docker Deployment (Production-Ready)
+
+For production deployment with PostgreSQL and Redis, use Docker:
+
+### Prerequisites
+
+- **Docker** and **Docker Compose** installed
+- **Amadeus API credentials**
+
+### Step 1: Create Environment File
+
+```bash
+# Copy the Docker environment template
+cp .env.docker.example .env
+
+# Edit .env and add your credentials
+nano .env
+```
+
+Required environment variables:
+```bash
+AMADEUS_CLIENT_ID=your_actual_client_id
+AMADEUS_CLIENT_SECRET=your_actual_client_secret
+AMADEUS_ENV=test  # or 'prod'
+
+# Optional: AI Visa Research
+ENABLE_AI_VISA_RESEARCH=false
+ANTHROPIC_API_KEY=your_anthropic_key_if_enabled
+```
+
+### Step 2: Build and Run
+
+```bash
+# Build and start all services (app + PostgreSQL + Redis)
+docker-compose up --build
+
+# Or run in detached mode
+docker-compose up -d
+
+# View logs
+docker-compose logs -f app
+
+# Stop services
+docker-compose down
+
+# Stop and remove volumes (clears database)
+docker-compose down -v
+```
+
+### What Gets Deployed
+
+The Docker setup includes:
+
+- **Backend + Frontend**: Single container running FastAPI with built React frontend
+- **PostgreSQL 15**: Production database for search history
+- **Redis 7**: Distributed cache for multi-worker deployments
+
+### Architecture
+
+```
+┌─────────────────┐
+│   Frontend      │  React app (served from FastAPI)
+│   (Port 8000)   │
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│   FastAPI       │  Python backend
+│   Backend       │
+└────┬──────┬─────┘
+     │      │
+┌────▼──┐ ┌─▼──────┐
+│ Redis │ │ Postgres│
+│ Cache │ │   DB    │
+└───────┘ └─────────┘
+```
+
+### Access Points
+
+- **Application**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+- **PostgreSQL**: localhost:5432 (user: `geoflight`, db: `geoflight`)
+- **Redis**: localhost:6379
+
+### Database Management
+
+```bash
+# Connect to PostgreSQL inside container
+docker-compose exec postgres psql -U geoflight -d geoflight
+
+# Check database size
+SELECT pg_size_pretty(pg_database_size('geoflight'));
+
+# List all searches
+SELECT id, created_at FROM searches ORDER BY created_at DESC LIMIT 10;
+
+# Connect to Redis
+docker-compose exec redis redis-cli
+
+# Check cache size
+DBSIZE
+
+# Clear cache
+FLUSHDB
+```
+
+### Production Deployment Notes
+
+1. **Change default passwords** in `docker-compose.yml`
+2. **Use environment variables** for secrets (don't commit `.env`)
+3. **Set up SSL/TLS** with a reverse proxy (nginx, Caddy, Traefik)
+4. **Enable monitoring** (add Prometheus + Grafana containers)
+5. **Configure backups** for PostgreSQL volumes
+6. **Use production Amadeus credentials** (`AMADEUS_ENV=prod`)
+
+### Scaling for High Traffic
+
+```yaml
+# In docker-compose.yml, scale the app service:
+services:
+  app:
+    deploy:
+      replicas: 4  # Run 4 instances
+```
+
+Or use Docker Swarm/Kubernetes for advanced orchestration.
+
 ## 🧪 Running Tests
 
 ```bash
@@ -438,26 +564,49 @@ LONG_LAYOVER_THRESHOLD = 8 * 60  # hours
 
 ## 📊 Caching
 
-**In-memory cache** (for deduplication):
+**Adaptive caching** (automatic selection based on configuration):
 - Searches are cached by query hash (origin, destination, date, passport, safety mode, travel docs)
 - Default TTL: 30 minutes (configurable via `APP_CACHE_TTL_SECONDS` in `.env`)
-- Implementation: Simple Python dict with TTL in `app/cache.py`
-- **For production:** Upgrade to Redis for multi-process/distributed deployments
+- Implementation in `app/cache.py`:
+  - **With Redis** (`REDIS_URL` set): Uses RedisCache (distributed, multi-worker safe)
+  - **Without Redis**: Uses SimpleCache (in-memory dict, single-worker only)
 
 **Cache hit behavior:**
 - Cache stores search_id → fetch full results from database
 - Avoids duplicate Amadeus API calls within 30 minutes
 
+**Redis usage:**
+```bash
+# Local development with Redis
+REDIS_URL=redis://localhost:6379/0
+
+# Docker (automatically configured in docker-compose.yml)
+REDIS_URL=redis://redis:6379/0
+```
+
 ## 🗄️ Database
 
-**SQLite tables** (for persistence/history):
+**Supported databases:**
+- **SQLite** (default for local development)
+- **PostgreSQL** (recommended for production/Docker)
+
+**Database tables:**
 - `searches` — search requests and metadata
 - `itineraries` — normalized itineraries with risk scores
 - `provider_payloads` — raw API responses (optional for debugging)
 
-**Location:** `backend/geoflight.db` (auto-created on first run)
+**Configuration:**
+```bash
+# SQLite (local development)
+DATABASE_URL=sqlite+aiosqlite:///./geoflight.db
 
-**Note:** Caching is now separate from persistence. The database stores search history, while the in-memory cache handles 30-min deduplication.
+# PostgreSQL (Docker/production)
+DATABASE_URL=postgresql+asyncpg://user:password@host:5432/dbname
+```
+
+**Location (SQLite):** `backend/geoflight.db` (auto-created on first run)
+
+**Note:** Caching is separate from persistence. The database stores search history, while cache (Redis or in-memory) handles 30-min deduplication.
 
 ## 🔒 Security & Privacy
 

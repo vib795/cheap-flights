@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: geoflight-postgres
+    environment:
+      POSTGRES_DB: geoflight
+      POSTGRES_USER: geoflight
+      POSTGRES_PASSWORD: geoflight_dev_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geoflight"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - geoflight-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: geoflight-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - geoflight-network
+
+  # Backend + Frontend (single container)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: geoflight-app
+    ports:
+      - "8000:8000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://geoflight:geoflight_dev_password@postgres:5432/geoflight
+
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+
+      # Amadeus API (set your credentials)
+      AMADEUS_CLIENT_ID: ${AMADEUS_CLIENT_ID:-}
+      AMADEUS_CLIENT_SECRET: ${AMADEUS_CLIENT_SECRET:-}
+      AMADEUS_ENV: ${AMADEUS_ENV:-test}
+
+      # AI Visa Research (optional)
+      ENABLE_AI_VISA_RESEARCH: ${ENABLE_AI_VISA_RESEARCH:-false}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+      # App config
+      APP_CACHE_TTL_SECONDS: 1800
+      CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8000"]'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - geoflight-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  geoflight-network:
+    driver: bridge
