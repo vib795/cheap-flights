@@ -2,6 +2,7 @@ import hashlib
 import logging
 from datetime import datetime
 from typing import Any
+import uuid
 
 from app.models import FlightSegment, Itinerary, Layover, Price
 
@@ -87,8 +88,12 @@ def normalize_amadeus_offer(offer: dict[str, Any]) -> Itinerary:
     Returns:
         Normalized Itinerary object
     """
-    # Generate unique ID from offer data
-    offer_id = offer.get("id", hashlib.md5(str(offer).encode()).hexdigest())
+    # Generate unique ID for this itinerary (unique across all searches)
+    # Use UUID to ensure global uniqueness since Amadeus offer IDs can repeat across searches
+    itinerary_id = str(uuid.uuid4())
+
+    # Store original Amadeus offer ID for reference
+    amadeus_offer_id = offer.get("id", "unknown")
 
     # Extract price
     price_data = offer.get("price", {})
@@ -173,7 +178,7 @@ def normalize_amadeus_offer(offer: dict[str, Any]) -> Itinerary:
     )
 
     return Itinerary(
-        id=offer_id,
+        id=itinerary_id,
         provider="amadeus",
         price=price,
         total_duration_minutes=total_duration,
@@ -182,7 +187,7 @@ def normalize_amadeus_offer(offer: dict[str, Any]) -> Itinerary:
         layovers=layovers,
         transit_countries=transit_countries,
         risk=risk,
-        raw_provider_payload_ref=f"amadeus:{offer_id}",
+        raw_provider_payload_ref=f"amadeus:{amadeus_offer_id}",
     )
 
 
