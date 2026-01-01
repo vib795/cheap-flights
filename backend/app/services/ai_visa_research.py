@@ -140,11 +140,13 @@ class AIVisaResearchService:
                     follow_redirects=True,
                 )
 
-                if response.status_code == 200:
+                # Accept both 200 (OK) and 202 (Accepted) responses
+                # DuckDuckGo may return 202 for valid searches
+                if response.status_code in [200, 202]:
                     # Extract text snippets from HTML (simplified)
                     # In production, use proper HTML parsing
                     text = response.text[:3000]  # Limit to first 3000 chars
-                    logger.info("Web search completed successfully")
+                    logger.info(f"Web search completed with status {response.status_code}")
                     return text
                 else:
                     logger.warning(f"Web search returned status {response.status_code}")
