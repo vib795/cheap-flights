@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from app import db
+from app.cache import search_cache
 from app.models import (
     HealthResponse,
     Itinerary,
@@ -46,9 +47,11 @@ async def search_flights(request: SearchRequest):
         f"(passport: {request.passport_nationality}, mode: {request.safety_mode.value})"
     )
 
-    # Check cache
-    cached_search_id = await db.get_cached_search(request)
+    # Check in-memory cache (30-min deduplication)
+    cache_key = db.generate_cache_key(request)
+    cached_search_id = search_cache.get(cache_key)
     if cached_search_id:
+        # Fetch from persistent DB
         cached_data = await db.get_search(cached_search_id)
         if cached_data:
             logger.info(f"Returning cached results for search {cached_search_id}")
@@ -108,9 +111,12 @@ async def search_flights(request: SearchRequest):
         # Take top 20
         top_itineraries = itineraries[:20]
 
-        # Generate search ID and save to database
+        # Generate search ID and save to database (for history/persistence)
         search_id = _generate_search_id()
         await db.save_search(search_id, request, top_itineraries)
+
+        # Cache the search ID in memory (for 30-min deduplication)
+        search_cache.set(cache_key, search_id)
 
         logger.info(f"Search completed successfully with {len(top_itineraries)} results")
 

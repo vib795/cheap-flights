@@ -63,25 +63,9 @@ async def init_db():
         """
         )
 
-        # Cache table for query-based caching
-        await db.execute(
-            """
-            CREATE TABLE IF NOT EXISTS search_cache (
-                cache_key TEXT PRIMARY KEY,
-                search_id TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL,
-                FOREIGN KEY (search_id) REFERENCES searches (id)
-            )
-        """
-        )
-
         # Create indexes
         await db.execute(
             "CREATE INDEX IF NOT EXISTS idx_itineraries_search_id ON itineraries(search_id)"
-        )
-        await db.execute(
-            "CREATE INDEX IF NOT EXISTS idx_cache_expires ON search_cache(expires_at)"
         )
 
         await db.commit()
@@ -113,42 +97,16 @@ def generate_cache_key(request: SearchRequest) -> str:
     return hashlib.sha256(key_data.encode()).hexdigest()
 
 
-async def get_cached_search(request: SearchRequest) -> Optional[str]:
-    """
-    Get cached search ID if available and not expired
-
-    Args:
-        request: Search request
-
-    Returns:
-        Search ID if cached and valid, None otherwise
-    """
-    cache_key = generate_cache_key(request)
-    now = datetime.utcnow().isoformat()
-
-    async with aiosqlite.connect(DB_PATH) as db:
-        cursor = await db.execute(
-            """
-            SELECT search_id FROM search_cache
-            WHERE cache_key = ? AND expires_at > ?
-            """,
-            (cache_key, now),
-        )
-        row = await cursor.fetchone()
-
-        if row:
-            logger.info(f"Cache hit for key {cache_key[:8]}...")
-            return row[0]
-
-        logger.info(f"Cache miss for key {cache_key[:8]}...")
-        return None
 
 
 async def save_search(
     search_id: str, request: SearchRequest, itineraries: list[Itinerary]
 ) -> None:
     """
-    Save search results to database
+    Save search results to database for history/persistence
+
+    Note: Caching is handled separately in app.cache module (in-memory).
+    This function only persists search history to the database.
 
     Args:
         search_id: Unique search ID
@@ -156,10 +114,6 @@ async def save_search(
         itineraries: List of itineraries
     """
     now = datetime.utcnow().isoformat()
-    cache_key = generate_cache_key(request)
-    expires_at = (
-        datetime.utcnow() + timedelta(seconds=settings.app_cache_ttl_seconds)
-    ).isoformat()
 
     async with aiosqlite.connect(DB_PATH) as db:
         # Save search
@@ -193,15 +147,6 @@ async def save_search(
                     now,
                 ),
             )
-
-        # Save cache entry
-        await db.execute(
-            """
-            INSERT OR REPLACE INTO search_cache (cache_key, search_id, created_at, expires_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            (cache_key, search_id, now, expires_at),
-        )
 
         await db.commit()
         logger.info(f"Saved search {search_id} with {len(itineraries)} itineraries")
@@ -255,16 +200,3 @@ async def get_search(search_id: str) -> Optional[dict[str, Any]]:
         }
 
 
-async def cleanup_expired_cache():
-    """Remove expired cache entries"""
-    now = datetime.utcnow().isoformat()
-
-    async with aiosqlite.connect(DB_PATH) as db:
-        cursor = await db.execute(
-            "DELETE FROM search_cache WHERE expires_at < ?", (now,)
-        )
-        deleted = cursor.rowcount
-        await db.commit()
-
-        if deleted > 0:
-            logger.info(f"Cleaned up {deleted} expired cache entries")

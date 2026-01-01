@@ -438,19 +438,26 @@ LONG_LAYOVER_THRESHOLD = 8 * 60  # hours
 
 ## 📊 Caching
 
+**In-memory cache** (for deduplication):
 - Searches are cached by query hash (origin, destination, date, passport, safety mode, travel docs)
 - Default TTL: 30 minutes (configurable via `APP_CACHE_TTL_SECONDS` in `.env`)
-- Cache is stored in SQLite (`geoflight.db`)
+- Implementation: Simple Python dict with TTL in `app/cache.py`
+- **For production:** Upgrade to Redis for multi-process/distributed deployments
+
+**Cache hit behavior:**
+- Cache stores search_id → fetch full results from database
+- Avoids duplicate Amadeus API calls within 30 minutes
 
 ## 🗄️ Database
 
-**SQLite tables:**
-- `searches` — search requests
-- `itineraries` — normalized itineraries with scores
+**SQLite tables** (for persistence/history):
+- `searches` — search requests and metadata
+- `itineraries` — normalized itineraries with risk scores
 - `provider_payloads` — raw API responses (optional for debugging)
-- `search_cache` — query hash → search_id mapping with TTL
 
 **Location:** `backend/geoflight.db` (auto-created on first run)
+
+**Note:** Caching is now separate from persistence. The database stores search history, while the in-memory cache handles 30-min deduplication.
 
 ## 🔒 Security & Privacy
 
@@ -466,8 +473,9 @@ For production deployment:
 1. Build frontend: `cd frontend && npm run build`
 2. Set `AMADEUS_ENV=prod` in backend `.env` (and use production Amadeus credentials)
 3. Run backend with production ASGI server: `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4`
-4. Optionally use a reverse proxy (nginx) in front
-5. Use a production DB (PostgreSQL) instead of SQLite for scale (update `app/settings.py`)
+4. **IMPORTANT:** For multi-worker deployments, replace in-memory cache with Redis (see `app/cache.py`)
+5. Optionally use a reverse proxy (nginx) in front
+6. Use a production DB (PostgreSQL) instead of SQLite for scale (update `app/settings.py`)
 
 ## 🐛 Known Limitations & Assumptions
 
