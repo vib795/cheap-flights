@@ -163,20 +163,20 @@ class AIVisaResearchService:
         Use Claude AI to summarize search results into concise visa guidance
         """
         try:
-            prompt = f"""Based on the web search results below, provide a brief, factual summary of visa/entry requirements for {passport} passport holders traveling to {destination}.
+            prompt = f"""You are a visa research assistant. Based on the web search results below, write a concise summary of visa/entry requirements for {passport} passport holders traveling to {destination}.
 
-Focus on:
-- Whether a visa is required or visa-free/eVisa available
+Include ONLY the following in your response:
+- Whether a visa is required or if visa-free/eVisa is available
 - Validity period if visa-free
 - Key requirements or restrictions
 - Any important notes about transit vs tourist entry
 
-Keep it under 200 words and factual. If information is unclear, say so.
+IMPORTANT: Write ONLY the factual summary. Do NOT include any meta-commentary about your response, word counts, or what you're doing. If information is unclear, state that directly in the summary.
+
+Keep your response under 200 words.
 
 Search results:
-{search_results[:2000]}
-
-Summary:"""
+{search_results[:2000]}"""
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
