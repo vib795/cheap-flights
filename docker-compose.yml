@@ -6,15 +6,15 @@ services:
     image: postgres:15-alpine
     container_name: geoflight-postgres
     environment:
-      POSTGRES_DB: geoflight
-      POSTGRES_USER: geoflight
-      POSTGRES_PASSWORD: geoflight_dev_password
+      POSTGRES_DB: ${POSTGRES_DB:-geoflight}
+      POSTGRES_USER: ${POSTGRES_USER:-geoflight}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U geoflight"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-geoflight}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,15 +48,15 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Database
-      DATABASE_URL: postgresql+asyncpg://geoflight:geoflight_dev_password@postgres:5432/geoflight
+      # Database (constructed from env vars)
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-geoflight}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-geoflight}
 
       # Redis
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
 
       # Amadeus API (set your credentials in .env file)
-      AMADEUS_CLIENT_ID: ${AMADEUS_CLIENT_ID:-}
-      AMADEUS_CLIENT_SECRET: ${AMADEUS_CLIENT_SECRET:-}
+      AMADEUS_CLIENT_ID: ${AMADEUS_CLIENT_ID:?AMADEUS_CLIENT_ID is required}
+      AMADEUS_CLIENT_SECRET: ${AMADEUS_CLIENT_SECRET:?AMADEUS_CLIENT_SECRET is required}
       AMADEUS_ENV: ${AMADEUS_ENV:-test}
 
       # AI Visa Research (optional)
@@ -64,7 +64,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
 
       # App config
-      APP_CACHE_TTL_SECONDS: 1800
+      APP_CACHE_TTL_SECONDS: ${APP_CACHE_TTL_SECONDS:-1800}
       CORS_ORIGINS: '["http://localhost","http://localhost:3000","http://localhost:80"]'
     depends_on:
       postgres:

@@ -206,16 +206,30 @@ cp .env.docker.example .env
 nano .env
 ```
 
-Required environment variables:
+**⚠️ SECURITY WARNING**: Never commit `.env` file to git! It contains sensitive credentials.
+
+Required environment variables in `.env`:
+
 ```bash
+# PostgreSQL Database (CHANGE THESE IN PRODUCTION!)
+POSTGRES_DB=geoflight
+POSTGRES_USER=geoflight
+POSTGRES_PASSWORD=your_secure_password_here  # ← Change this!
+
+# Redis
+REDIS_URL=redis://redis:6379/0
+
+# Amadeus API (required)
 AMADEUS_CLIENT_ID=your_actual_client_id
 AMADEUS_CLIENT_SECRET=your_actual_client_secret
 AMADEUS_ENV=test  # or 'prod'
 
 # Optional: AI Visa Research
 ENABLE_AI_VISA_RESEARCH=false
-ANTHROPIC_API_KEY=your_anthropic_key_if_enabled
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
 ```
+
+The `.env` file is already in `.gitignore` to prevent accidental commits.
 
 ### Step 2: Build and Run
 
@@ -303,13 +317,35 @@ FLUSHDB
 
 ### Production Deployment Notes
 
-1. **Change default passwords** in `docker-compose.yml`
-2. **Use environment variables** for secrets (don't commit `.env`)
-3. **Set up SSL/TLS** with Caddy/Traefik or configure nginx-proxy
-4. **Enable monitoring** (add Prometheus + Grafana containers)
-5. **Configure backups** for PostgreSQL volumes
-6. **Use production Amadeus credentials** (`AMADEUS_ENV=prod`)
-7. **Load balancing**: For multiple backend replicas, add nginx/haproxy load balancer
+**🔒 Security Checklist:**
+
+1. **Change database credentials** in `.env`:
+   ```bash
+   POSTGRES_PASSWORD=use_a_strong_random_password_here
+   ```
+   Generate secure passwords: `openssl rand -base64 32`
+
+2. **Never commit `.env` file** to version control (already in `.gitignore`)
+
+3. **Set up SSL/TLS** with Caddy/Traefik or configure nginx with Let's Encrypt
+
+4. **Use production Amadeus credentials**:
+   ```bash
+   AMADEUS_ENV=prod
+   AMADEUS_CLIENT_ID=your_production_client_id
+   AMADEUS_CLIENT_SECRET=your_production_client_secret
+   ```
+
+5. **Enable monitoring** (add Prometheus + Grafana containers)
+
+6. **Configure backups** for PostgreSQL volumes:
+   ```bash
+   docker-compose exec postgres pg_dump -U geoflight geoflight > backup.sql
+   ```
+
+7. **Restrict network access**: Configure firewall rules, don't expose PostgreSQL/Redis ports publicly
+
+8. **Load balancing**: For multiple backend replicas, add nginx/haproxy load balancer
 
 ### Scaling for High Traffic
 
