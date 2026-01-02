@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { SearchRequest, CabinClass, SafetyMode } from '../api/types';
+import AirportAutocomplete from './AirportAutocomplete';
 
 interface SearchFormProps {
   onSearch: (request: SearchRequest) => void;
@@ -277,34 +278,20 @@ export function SearchForm({ onSearch, isLoading }: SearchFormProps) {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Origin and Destination */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Origin (IATA Code) *
-            </label>
-            <input
-              type="text"
-              required
-              maxLength={3}
-              value={origin}
-              onChange={(e) => setOrigin(e.target.value)}
-              placeholder="e.g. DEL"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Destination (IATA Code) *
-            </label>
-            <input
-              type="text"
-              required
-              maxLength={3}
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              placeholder="e.g. SFO"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          <AirportAutocomplete
+            value={origin}
+            onChange={setOrigin}
+            label="Origin"
+            placeholder="e.g. New Delhi, DEL"
+            required
+          />
+          <AirportAutocomplete
+            value={destination}
+            onChange={setDestination}
+            label="Destination"
+            placeholder="e.g. San Francisco, SFO"
+            required
+          />
         </div>
 
         {/* Date and Passengers */}

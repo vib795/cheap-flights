@@ -1,6 +1,8 @@
 import hashlib
+import json
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 import uuid
 
@@ -8,51 +10,36 @@ from app.models import FlightSegment, Itinerary, Layover, Price
 
 logger = logging.getLogger(__name__)
 
-# Simple mapping of airport codes to country codes (subset for MVP)
-# In production, use a proper airport database
-AIRPORT_TO_COUNTRY = {
-    "JFK": "US",
-    "EWR": "US",
-    "LAX": "US",
-    "ORD": "US",
-    "SFO": "US",
-    "DFW": "US",
-    "ATL": "US",
-    "IAH": "US",
-    "MIA": "US",
-    "LHR": "GB",
-    "LGW": "GB",
-    "CDG": "FR",
-    "AMS": "NL",
-    "FRA": "DE",
-    "MUC": "DE",
-    "MAD": "ES",
-    "BCN": "ES",
-    "FCO": "IT",
-    "MXP": "IT",
-    "DXB": "AE",
-    "DOH": "QA",
-    "IST": "TR",
-    "SIN": "SG",
-    "HKG": "HK",
-    "NRT": "JP",
-    "HND": "JP",
-    "ICN": "KR",
-    "BKK": "TH",
-    "DEL": "IN",
-    "BOM": "IN",
-    "SYD": "AU",
-    "YYZ": "CA",
-    "YVR": "CA",
-    "MEX": "MX",
-    "GRU": "BR",
-    "EZE": "AR",
-}
+# Load comprehensive airport database from JSON file
+_AIRPORT_DB = None
+
+def _load_airport_database():
+    """Load airport database from JSON file (singleton)"""
+    global _AIRPORT_DB
+    if _AIRPORT_DB is None:
+        db_path = Path(__file__).parent.parent / "data" / "airport_to_country.json"
+        try:
+            with open(db_path, 'r') as f:
+                _AIRPORT_DB = json.load(f)
+            logger.info(f"Loaded airport database with {len(_AIRPORT_DB)} airports")
+        except Exception as e:
+            logger.warning(f"Failed to load airport database: {e}, using empty fallback")
+            _AIRPORT_DB = {}
+    return _AIRPORT_DB
 
 
 def get_country_from_airport(iata: str) -> str:
-    """Get country code from airport IATA code (best effort)"""
-    return AIRPORT_TO_COUNTRY.get(iata.upper(), "UNKNOWN")
+    """
+    Get country code from airport IATA code
+
+    Args:
+        iata: 3-letter IATA airport code
+
+    Returns:
+        2-letter ISO country code, or "UNKNOWN" if not found
+    """
+    airport_db = _load_airport_database()
+    return airport_db.get(iata.upper(), "UNKNOWN")
 
 
 def parse_duration(iso_duration: str) -> int:
